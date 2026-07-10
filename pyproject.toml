@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "digital-twin-fulfillment"
+version = "0.1.0"
+description = "Predictive chaos-engineering digital twin of a fulfillment center."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "Abhi Mittal" }]
+keywords = ["digital-twin", "simulation", "chaos-engineering", "causal-inference", "warehouse"]
+dependencies = [
+    "simpy>=4.0",
+    "numpy>=1.23",
+    "scipy>=1.9",
+    "scikit-learn>=1.1",
+    "networkx>=2.8",
+]
+
+[project.optional-dependencies]
+# Optional deep-learning refinement (GAT causal refinement + LSTM forecaster).
+dl = ["torch>=2.0"]
+dev = ["pytest>=7.0", "pytest-cov>=4.0"]
+
+[project.scripts]
+digital-twin = "digital_twin.cli:main"
+
+[tool.setuptools]
+packages = ["digital_twin"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
