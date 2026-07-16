@@ -1,11 +1,11 @@
-"""End-to-end demo: simulate, break, understand, and predict.
+"""End-to-end demo: simulate, break, understand, predict, and decide.
 
 Run with::
 
     python examples/run_demo.py
 
-This exercises all three "brains" plus the chaos injector on a small warehouse so it
-finishes in a few seconds.
+This exercises all three "brains", the chaos injector, and the decision-optimization
+layer on a small warehouse so it finishes in a few seconds.
 """
 
 from __future__ import annotations
@@ -16,8 +16,10 @@ from digital_twin import (
     ChaosInjector,
     ChaosScenario,
     DigitalTwin,
+    GreedyOptimizer,
     WarehouseConfig,
 )
+from digital_twin.optimizer import balanced_objective
 
 
 def main() -> None:
@@ -73,6 +75,18 @@ def main() -> None:
     prediction = predictor.predict(queue_series, horizon=10)
     print(f"  {prediction.explanation}")
     print(f"  contributing factors: {prediction.contributing_factors}")
+
+    # -- Brain 4: recommend the best intervention ---------------------- #
+    print("\n" + "=" * 66)
+    print("BRAIN 4 — Decision Optimizer (which lever to pull, budget ≤ 10)")
+    print("=" * 66)
+    optimizer = GreedyOptimizer(config, objective=balanced_objective,
+                                duration=1800, num_orders=400)
+    recommendations = optimizer.recommend(budget=10.0)
+    for rec in recommendations[:4]:
+        print(f"  {rec.lever:16s} Δobjective={rec.delta:+8.1f}  (cost {rec.cost:g})")
+    if recommendations:
+        print(f"  ➜ recommended: {recommendations[0].lever}")
 
 
 if __name__ == "__main__":

@@ -105,11 +105,14 @@ def discover_causal_structure(observations: List[Dict[str, float]],
             independent = _test_conditional_independence(data, i, j, conditioning, alpha)
             if independent:
                 continue
-            weight = abs(float(correlations[i, j]))
+            # ``weight`` is the (unsigned) strength for ranking; ``effect`` keeps the
+            # sign so interventions can tell "more X ⇒ less Y" from "⇒ more Y".
+            signed = float(correlations[i, j])
+            weight = abs(signed)
             if _comes_before(variables[i], variables[j]):
-                graph.add_edge(variables[i], variables[j], weight=weight)
+                graph.add_edge(variables[i], variables[j], weight=weight, effect=signed)
             else:
-                graph.add_edge(variables[j], variables[i], weight=weight)
+                graph.add_edge(variables[j], variables[i], weight=weight, effect=signed)
     return graph
 
 
@@ -169,7 +172,9 @@ class CausalInferenceEngine:
                     continue
                 gain = 1.0
                 for a, b in zip(path, path[1:]):
-                    gain *= self.causal_graph[a][b].get("weight", 0.0)
+                    edge = self.causal_graph[a][b]
+                    # Prefer the signed effect; fall back to unsigned weight.
+                    gain *= edge.get("effect", edge.get("weight", 0.0))
                 effects[target] = effects.get(target, 0.0) + magnitude * gain
 
         confidence = 0.0
