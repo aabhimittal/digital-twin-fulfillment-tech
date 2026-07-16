@@ -13,6 +13,10 @@ Run a chaos experiment and print the impact::
 Learn the causal graph and forecast cascade risk from a run::
 
     python -m digital_twin.cli analyze --duration 3600
+
+Recommend the best operational intervention within a budget::
+
+    python -m digital_twin.cli optimize --duration 3600 --budget 10
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ from typing import List
 from digital_twin.causal import CausalInferenceEngine
 from digital_twin.chaos import ChaosInjector, ChaosScenario
 from digital_twin.core import DigitalTwin, WarehouseConfig
+from digital_twin.optimizer import GreedyOptimizer, balanced_objective, throughput_objective
 from digital_twin.prediction import CascadePredictor
 
 
@@ -81,6 +86,29 @@ def cmd_analyze(args) -> dict:
     }
 
 
+def cmd_optimize(args) -> dict:
+    objective = balanced_objective if args.objective == "balanced" else throughput_objective
+    optimizer = GreedyOptimizer(
+        _config_from_args(args),
+        objective=objective,
+        duration=args.duration,
+        num_orders=args.orders,
+    )
+    recs = optimizer.recommend(budget=args.budget)
+    best = recs[0] if recs else None
+    return {
+        "objective": args.objective,
+        "budget": args.budget,
+        "best": None if best is None else {
+            "lever": best.lever, "delta": round(best.delta, 2), "cost": best.cost,
+        },
+        "ranking": [
+            {"lever": r.lever, "delta": round(r.delta, 2), "cost": r.cost}
+            for r in recs
+        ],
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     # Common options live on a parent parser so they work *after* the subcommand
     # (e.g. ``analyze --robots 20``) as well as before it.
@@ -110,6 +138,13 @@ def build_parser() -> argparse.ArgumentParser:
                    help="learn causal graph + forecast cascade risk").set_defaults(
         func=cmd_analyze
     )
+
+    optimize = sub.add_parser("optimize", parents=[common],
+                              help="recommend the best intervention within a budget")
+    optimize.add_argument("--budget", type=float, default=float("inf"))
+    optimize.add_argument("--objective", default="throughput",
+                          choices=["throughput", "balanced"])
+    optimize.set_defaults(func=cmd_optimize)
     return parser
 
 

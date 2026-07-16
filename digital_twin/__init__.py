@@ -30,8 +30,15 @@ from digital_twin.chaos import (
 )
 from digital_twin.causal import CausalInferenceEngine, discover_causal_structure
 from digital_twin.prediction import CascadePredictor, PredictionResult
+from digital_twin.optimizer import (
+    BanditOptimizer,
+    GreedyOptimizer,
+    Lever,
+    Recommendation,
+    default_levers,
+)
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "DigitalTwin",
@@ -48,5 +55,10 @@ __all__ = [
     "discover_causal_structure",
     "CascadePredictor",
     "PredictionResult",
+    "GreedyOptimizer",
+    "BanditOptimizer",
+    "Lever",
+    "Recommendation",
+    "default_levers",
     "__version__",
 ]

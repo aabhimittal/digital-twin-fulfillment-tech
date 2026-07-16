@@ -16,7 +16,7 @@ It combines four ideas that are usually kept apart:
 
 ---
 
-## The three brains
+## Architecture — three brains + a decision loop
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -40,6 +40,7 @@ It combines four ideas that are usually kept apart:
 | **1 — Physics Engine** | [`core.py`](digital_twin/core.py) | Discrete-event SimPy model of robots, stations & orders (ground truth) | *What happens?* |
 | **2 — Causal Graph** | [`causal.py`](digital_twin/causal.py) | Constraint-based causal discovery (partial correlation) + optional GAT | *Why does it happen?* |
 | **3 — Prediction Engine** | [`prediction.py`](digital_twin/prediction.py) | KPI forecasting + cascade-risk estimation (Holt's method, optional LSTM) | *What happens next?* |
+| **4 — Decision Optimizer** | [`optimizer.py`](digital_twin/optimizer.py) | Searches operational levers (greedy counterfactuals or a causal bandit) under a budget | *What should I do about it?* |
 | **Chaos Injector** | [`chaos.py`](digital_twin/chaos.py) | UCB-bandit-driven incident injection | *Where does it break first?* |
 
 ### What makes it different
@@ -107,6 +108,9 @@ digital-twin chaos --scenario robot_plague --robots 50 --duration 3600
 
 # Learn the causal graph + forecast cascade risk
 digital-twin analyze --robots 30 --duration 3600
+
+# Recommend the best intervention within a budget
+digital-twin optimize --robots 30 --duration 3600 --budget 10 --objective balanced
 ```
 
 (Without `pip install -e .`, use `python -m digital_twin.cli ...`.)
@@ -175,6 +179,24 @@ Forecasts a KPI series (Holt's linear-trend exponential smoothing by default; an
 when PyTorch is available) and scores **cascade risk** from three signals: directional
 **trend**, **volatility**, and **proximity to a critical threshold**.
 
+### Brain 4 · Decision Optimizer (`optimizer.py`)
+
+Closes the loop: given a library of operational **levers** (add/remove robots, add
+station capacity, throttle order intake, ...) it finds the best move under a **budget**.
+
+* `GreedyOptimizer` runs a real counterfactual simulation per lever — accurate, and
+  never mutates your baseline config.
+* `BanditOptimizer` is an epsilon-greedy contextual bandit that reuses the causal
+  graph to *predict* each lever's effect cheaply, so it can rank a large lever space
+  without re-simulating everything.
+
+```python
+from digital_twin import GreedyOptimizer, WarehouseConfig
+opt = GreedyOptimizer(WarehouseConfig(num_robots=30, seed=1))
+best = opt.recommend(budget=10)[0]
+print(best.lever, best.delta)     # e.g. "add_5_robots" +56.0
+```
+
 ### Chaos Injector (`chaos.py`)
 
 Doesn't break things at random — it uses an **Upper-Confidence-Bound bandit** to spend
@@ -196,10 +218,11 @@ digital_twin/
 ├── core.py         # Brain 1 — SimPy physics engine
 ├── causal.py       # Brain 2 — causal discovery + interventions
 ├── prediction.py   # Brain 3 — forecasting + cascade risk
+├── optimizer.py    # Brain 4 — decision optimizer (levers, greedy + causal bandit)
 ├── chaos.py        # chaos injector (UCB bandit) + scenarios
 └── cli.py          # `digital-twin` command-line entry point
 examples/run_demo.py
-tests/               # pytest suite (core, chaos, causal, prediction)
+tests/               # pytest suite (core, chaos, causal, prediction, optimizer)
 .github/workflows/ci.yml
 ```
 
@@ -219,7 +242,7 @@ CI runs the suite on Python 3.9 / 3.11 / 3.12 and smoke-tests the demo.
 - [x] Chaos injector with a UCB bandit + named scenarios
 - [x] Brain 2 — causal discovery + interventional queries
 - [x] Brain 3 — cascade-risk forecasting
-- [ ] Decision-optimization layer (RL agent that recommends optimal interventions)
+- [x] Brain 4 — decision-optimization layer (greedy counterfactuals + causal bandit)
 - [ ] Real-time dashboard for live twin telemetry
 
 ## License
